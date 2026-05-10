@@ -7,7 +7,7 @@ from pathlib import Path
 from datetime import date
 from concurrent.futures import ThreadPoolExecutor
 
-START_DATE = "2014-01-01"
+START_DATE = "2013-01-01"
 END_DATE   = "2024-12-01"
 
 BATCH_SIZE = 100
