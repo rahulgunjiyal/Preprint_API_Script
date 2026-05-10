@@ -1050,3 +1050,52 @@ df %>%
   select(Year, Male, Male_YoY, Female, Female_YoY) %>%
   as.data.frame() %>%
   print()
+
+
+
+
+
+
+
+
+
+
+
+###############
+############################Preprint status
+
+library(ggplot2)
+
+
+preprint_data <- data.frame(
+  Status = c("Active", "Withdrawn"),
+  Count = c(7851, 10)
+)
+
+preprint_data$Percentage <- (preprint_data$Count / sum(preprint_data$Count)) * 100
+
+print(preprint_data)
+
+ggplot(preprint_data, aes(x = Status, y = Count, fill = Status)) +
+  geom_bar(stat = "identity", width = 0.6) +
+
+  scale_y_log10(breaks = c(1, 10, 100, 1000, 10000), 
+                labels = c("1", "10", "100", "1,000", "10,000")) +
+
+  scale_fill_manual(values = c("Active" = "#34C759", "Withdrawn" = "#FF3B30")) +
+
+  geom_text(aes(label = Count), vjust = -0.5, fontface = "bold") +
+
+  labs(
+    title = "Indian Preprints — Log Scale",
+    subtitle = paste("Total:", sum(preprint_data$Count), "| log10 y-axis"),
+    x = "Preprint Status",
+    y = "Number of Preprints (log scale)"
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "none",
+    plot.title = element_text(hjust = 0.5, face = "bold"),
+    plot.subtitle = element_text(hjust = 0.5),
+    panel.grid.minor = element_blank()
+  )
