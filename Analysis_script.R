@@ -539,3 +539,194 @@ p1 <- make_pie(biorxiv, "bioRxiv — Submission License Types")
 p2 <- make_pie(medrxiv, "medRxiv — Submission License Types")
 
 p1 + p2 + plot_layout(widths = c(1, 1))
+
+
+
+
+
+
+#########
+################
+################################################ License pie chart all regions####################
+
+library(ggplot2)
+library(dplyr)
+library(scales)
+
+df <- data.frame(
+  Country = rep(c("India", "China", "USA", "Europe"), each = 8),
+  License = rep(c("blank/other", "cc_by", "cc_by_nc", "cc_by_nc_nd",
+                  "cc_by_nd", "cc_no", "cc0", "cc0_ng"), times = 4),
+  Pct = c(
+    
+    0,    11.0,  0,    36.0,   7.0,  40.4,  0,    0,
+    
+    0,    15.2,  7.0,  33.3,   0,    43.0,  0,    0,
+
+    0,    15.1,  7.5,  37.5,   6.0,  31.8,  0,    0,
+    
+    1.0,  21.2,  7.5,  37.0,   6.2,  27.3,  0,    0
+  )
+)
+
+df <- df %>%
+  mutate(
+    Ring = case_when(
+      Country == "India"  ~ 1,
+      Country == "China"  ~ 2,
+      Country == "USA"    ~ 3,
+      Country == "Europe" ~ 4
+    ),
+    Country = factor(Country, levels = c("India","China","USA","Europe"))
+  ) %>%
+  filter(Pct > 0)  
+
+license_colors <- c(
+  "blank/other" = "#B0BEC5",   
+  "cc_by"       = "#43A047",   
+  "cc_by_nc"    = "#1E88E5",  
+  "cc_by_nc_nd" = "#FB8C00",   
+  "cc_by_nd"    = "#8E24AA",   
+  "cc_no"       = "#E53935",   
+  "cc0"         = "#FDD835",   
+  "cc0_ng"      = "#00ACC1"    
+)
+
+ring_inner <- c(1.5, 2.6, 3.7, 4.8)   
+ring_outer <- c(2.4, 3.5, 4.6, 5.7) 
+ring_gap   <- 0.15                      
+
+arc_data <- list()
+
+for (i in 1:4) {
+  country_name <- c("India","China","USA","Europe")[i]
+  sub <- df %>% filter(Country == country_name) %>%
+    arrange(License)
+
+  sub <- sub %>%
+    mutate(
+      Frac     = Pct / sum(Pct),
+      AngleEnd = cumsum(Frac) * 2 * pi,
+      AngleStart = lag(AngleEnd, default = 0)
+    )
+
+  for (j in seq_len(nrow(sub))) {
+    angles <- seq(sub$AngleStart[j], sub$AngleEnd[j], length.out = 50)
+    r_in   <- ring_inner[i] + ring_gap / 2
+    r_out  <- ring_outer[i] - ring_gap / 2
+
+    seg_df <- data.frame(
+      x       = c(r_in  * cos(angles), rev(r_out * cos(angles))),
+      y       = c(r_in  * sin(angles), rev(r_out * sin(angles))),
+      License = sub$License[j],
+      Country = country_name,
+      Pct     = sub$Pct[j],
+      Ring    = i,
+      Group   = paste0(country_name, "_", sub$License[j])
+    )
+    arc_data[[length(arc_data) + 1]] <- seg_df
+  }
+}
+
+arc_df <- bind_rows(arc_data) %>%
+  mutate(License = factor(License, levels = names(license_colors)))
+
+label_data <- list()
+
+for (i in 1:4) {
+  country_name <- c("India","China","USA","Europe")[i]
+  sub <- df %>% filter(Country == country_name) %>%
+    arrange(License) %>%
+    mutate(
+      Frac       = Pct / sum(Pct),
+      AngleEnd   = cumsum(Frac) * 2 * pi,
+      AngleStart = lag(AngleEnd, default = 0),
+      AngleMid   = (AngleStart + AngleEnd) / 2,
+      r_mid      = (ring_inner[i] + ring_outer[i]) / 2,
+      lx         = r_mid * cos(AngleMid),
+      ly         = r_mid * sin(AngleMid),
+      Label      = paste0(Pct, "%")
+    ) %>%
+    filter(Pct >= 5)  
+
+  label_data[[i]] <- sub
+}
+
+label_df <- bind_rows(label_data)
+
+country_labels <- data.frame(
+  Country = c("India","China","USA","Europe"),
+  r       = ring_outer + 0.25,
+  angle   = pi / 2   
+) %>%
+  mutate(
+    r     = c(ring_outer[1]+0.25, ring_outer[2]+0.25,
+              ring_outer[3]+0.25, ring_outer[4]+0.25),
+    lx    = r * cos(angle - 0.05),
+    ly    = r * sin(angle - 0.05)
+  )
+
+p <- ggplot() +
+
+
+  geom_polygon(data = arc_df,
+               aes(x = x, y = y, group = Group, fill = License),
+               color = "white", linewidth = 0.4) +
+
+
+  geom_text(data = label_df,
+            aes(x = lx, y = ly, label = Label),
+            color = "white", fontface = "bold",
+            size = 3.2, family = "serif") +
+
+
+  geom_text(data = country_labels,
+            aes(x = lx, y = ly, label = Country),
+            color = "black", fontface = "bold",
+            size = 4.0, family = "serif", hjust = 0) +
+
+ 
+  scale_fill_manual(values = license_colors, name = "License type") +
+
+
+  coord_equal() +
+
+
+  xlim(-6.5, 8) +
+  ylim(-6.5, 6.5) +
+
+  labs(
+    title   = "License Type Distribution by Country",
+    caption = "Source: bioRxiv & medRxiv"
+  ) +
+
+  theme_void(base_family = "serif") +
+  theme(
+    plot.title      = element_text(face = "bold", size = 14, hjust = 0.5,
+                                   margin = margin(b = 10)),
+    plot.caption    = element_text(size = 9, color = "grey50",
+                                   hjust = 0.5, margin = margin(t = 10)),
+    legend.position = "right",
+    legend.title    = element_text(face = "bold", size = 11),
+    legend.text     = element_text(size = 10),
+    legend.key.size = unit(0.5, "cm"),
+    plot.background = element_rect(fill = "white", color = NA),
+    plot.margin     = margin(15, 10, 15, 10)
+  )
+
+
+ggsave("license_donut_chart.png",
+       plot   = p,
+       width  = 10,
+       height = 8,
+       dpi    = 300,
+       bg     = "white")
+
+cat("✓ Saved: license_donut_chart.png\n")
+
+cat("\n── License % by Country ─────────────────────────────\n")
+df %>%
+  select(Country, License, Pct) %>%
+  tidyr::pivot_wider(names_from = Country, values_from = Pct, values_fill = 0) %>%
+  as.data.frame() %>%
+  print()
