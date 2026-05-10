@@ -176,3 +176,297 @@ ggplot(df_long, aes(x = Year, y = Percentage, fill = Region)) +
     plot.title = element_text(hjust = 0.5, face = "bold"),
     axis.line = element_line(color = "black")
   )
+
+
+
+
+
+
+
+
+
+
+
+######
+  #########
+  ########################## Designation wise submission ######################
+  library(ggplot2)
+library(tidyr)
+library(dplyr)
+library(scales)
+library(patchwork)
+
+male <- data.frame(
+  Year      = 2014:2024,
+  Assistant = c(3,  5, 12, 24, 60, 90, 296, 191, 201, 269, 203),
+  Associate = c(3,  7, 18, 21, 66,117, 307, 229, 198, 217, 235),
+  Professor = c(5, 11, 33, 62,129,235, 557, 464, 433, 369, 419)
+) %>% mutate(Gender = "Male")
+
+female <- data.frame(
+  Year      = 2014:2024,
+  Assistant = c(1,  1,  2, 13, 29, 25, 89, 65, 59, 85, 81),
+  Associate = c(0,  0,  3,  7, 21, 30, 61, 56, 39, 67, 49),
+  Professor = c(0,  0,  8,  4, 40, 78,134,120,102,117,114)
+) %>% mutate(Gender = "Female")
+
+bar_colors <- c(
+  "Assistant Professor" = "#2166AC",
+  "Associate Professor" = "#F4A582",
+  "Professor"           = "#B2182B"
+)
+line_colors <- c(
+  "Assistant Professor" = "#053061",
+  "Associate Professor" = "#B35806",
+  "Professor"           = "#67001F"
+)
+
+theme_journal_pub <- function(base_size = 10) {
+  theme_classic(base_size = base_size, base_family = "serif") +
+    theme(
+    
+      axis.line         = element_line(color = "black", linewidth = 0.5),
+      axis.ticks        = element_line(color = "black", linewidth = 0.4),
+      axis.ticks.length = unit(0.15, "cm"),
+      axis.text         = element_text(color = "black", size = base_size - 1,
+                                       family = "serif"),
+      axis.text.x       = element_text(angle = 45, hjust = 1, vjust = 1),
+      axis.title        = element_text(color = "black", size = base_size,
+                                       face = "bold", family = "serif"),
+      axis.title.y.left = element_text(margin = margin(r = 6)),
+      axis.title.y.right= element_text(color = "grey35", size = base_size - 1,
+                                       face = "bold", angle = 90,
+                                       margin = margin(l = 6)),
+      axis.text.y.right = element_text(color = "grey35", size = base_size - 2),
+      axis.line.y.right = element_line(color = "grey60", linewidth = 0.4),
+      
+      
+      panel.border      = element_rect(color = "black", fill = NA,
+                                       linewidth = 0.6),
+      panel.grid.major.y= element_line(color = "grey92", linewidth = 0.35,
+                                       linetype = "solid"),
+      panel.grid.major.x= element_blank(),
+      panel.grid.minor  = element_blank(),
+      panel.background  = element_rect(fill = "white", color = NA),
+      
+      legend.position   = "bottom",
+      legend.box        = "horizontal",
+      legend.title      = element_text(face = "bold", size = base_size - 1,
+                                       family = "serif"),
+      legend.text       = element_text(size = base_size - 1, family = "serif"),
+      legend.key.size   = unit(0.4, "cm"),
+      legend.key        = element_rect(fill = NA, color = NA),
+      legend.background = element_blank(),
+      legend.margin     = margin(t = 4),
+      
+      plot.title        = element_text(face = "bold", size = base_size + 1,
+                                       hjust = 0, family = "serif",
+                                       margin = margin(b = 4)),
+      plot.subtitle     = element_text(size = base_size - 1, hjust = 0,
+                                       color = "grey30", family = "serif",
+                                       margin = margin(b = 6)),
+      plot.background   = element_rect(fill = "white", color = NA),
+      plot.margin       = margin(10, 12, 8, 10)
+    )
+}
+
+
+make_panel <- function(data, panel_label, count_max, yoy_max = 12) {
+  
+  data <- data %>%
+    mutate(Total = Assistant + Associate + Professor)
+  
+  df_yoy <- data %>%
+    arrange(Year) %>%
+    mutate(
+      Asst_YoY  = round((Assistant / lag(Assistant)) * 100 / 100, 2),
+      Assoc_YoY = round((Associate / lag(replace(Associate, Associate == 0, NA))) * 100 / 100, 2),
+      Prof_YoY  = round((Professor / lag(replace(Professor, Professor == 0, NA))) * 100 / 100, 2)
+    ) %>%
+    filter(!is.na(Asst_YoY)) %>%
+    pivot_longer(cols = c(Asst_YoY, Assoc_YoY, Prof_YoY),
+                 names_to = "Designation", values_to = "YoY") %>%
+    mutate(
+      Designation = recode(Designation,
+                           Asst_YoY  = "Assistant Professor",
+                           Assoc_YoY = "Associate Professor",
+                           Prof_YoY  = "Professor"),
+      Designation = factor(Designation,
+                           levels = c("Professor",
+                                      "Associate Professor",
+                                      "Assistant Professor")),
+      Label = as.character(round(YoY, 2))
+    ) %>%
+    filter(!is.na(YoY) & !is.infinite(YoY) & YoY > 0 & YoY < 15)
+  
+  scale_yoy   <- function(x) x / yoy_max * count_max
+  unscale_yoy <- function(x) x * yoy_max / count_max
+  df_yoy <- df_yoy %>% mutate(YoY_scaled = scale_yoy(YoY))
+  
+  df_bar <- data %>%
+    pivot_longer(cols = c(Assistant, Associate, Professor),
+                 names_to = "Designation", values_to = "Count") %>%
+    mutate(
+      Designation = recode(Designation,
+                           Assistant = "Assistant Professor",
+                           Associate = "Associate Professor",
+                           Professor = "Professor"),
+      Designation = factor(Designation,
+                           levels = c("Professor",
+                                      "Associate Professor",
+                                      "Assistant Professor"))
+    )
+  
+  df_lbl <- data %>%
+    mutate(
+      Asst_y  = Assistant / 2,
+      Assoc_y = Assistant + Associate / 2,
+      Prof_y  = Assistant + Associate + Professor / 2
+    )
+  
+  min_seg <- count_max * 0.04
+  
+  df_yoy_dot  <- df_yoy %>% filter(Year <= 2019)
+  df_yoy_solid <- df_yoy %>% filter(Year >= 2019)
+  
+  ggplot() +
+    
+  
+    geom_col(data = df_bar,
+             aes(x = factor(Year), y = Count, fill = Designation),
+             position = "stack", width = 0.65,
+             color = "black", linewidth = 0.2, alpha = 0.9) +
+    
+    geom_text(data = df_lbl %>% filter(Assistant >= min_seg),
+              aes(x = factor(Year), y = Asst_y, label = Assistant),
+              color = "white", fontface = "bold",
+              size = 2.5, family = "serif") +
+    geom_text(data = df_lbl %>% filter(Associate >= min_seg),
+              aes(x = factor(Year), y = Assoc_y, label = Associate),
+              color = "grey20", fontface = "bold",
+              size = 2.5, family = "serif") +
+    geom_text(data = df_lbl %>% filter(Professor >= min_seg),
+              aes(x = factor(Year), y = Prof_y, label = Professor),
+              color = "white", fontface = "bold",
+              size = 2.5, family = "serif") +
+
+    geom_text(data = df_lbl,
+              aes(x = factor(Year), y = Total + count_max * 0.025,
+                  label = Total),
+              color = "black", fontface = "bold",
+              size = 2.6, family = "serif") +
+    
+    geom_line(data = df_yoy_dot,
+              aes(x = factor(Year), y = YoY_scaled,
+                  color = Designation, group = Designation),
+              linewidth = 1.0, linetype = "dotted", lineend = "round") +
+    
+    geom_line(data = df_yoy_solid,
+              aes(x = factor(Year), y = YoY_scaled,
+                  color = Designation, group = Designation),
+              linewidth = 1.0, linetype = "solid", lineend = "round") +
+    
+    geom_point(data = df_yoy,
+               aes(x = factor(Year), y = YoY_scaled,
+                   color = Designation, shape = Designation),
+               size = 2.8, stroke = 1.0, fill = "white") +
+    
+    geom_text(data = df_yoy,
+              aes(x = factor(Year), y = YoY_scaled,
+                  color = Designation, label = Label),
+              vjust = -0.9, size = 2.2,
+              family = "serif", fontface = "bold",
+              show.legend = FALSE) +
+    
+    scale_fill_manual(values = bar_colors,    name = "Designation (Bar)") +
+    scale_color_manual(values = line_colors,  name = "YoY Ratio (Line)") +
+    scale_shape_manual(values = c(21, 22, 23),name = "YoY Ratio (Line)") +
+    
+    scale_y_continuous(
+      name   = "Number of Authors",
+      limits = c(0, count_max * 1.1),
+      breaks = seq(0, count_max, ifelse(count_max > 500, 200, 50)),
+      labels = comma,
+      expand = c(0, 0),
+      sec.axis = sec_axis(
+        transform = ~ unscale_yoy(.),
+        name      = "YoY Growth Ratio",
+        breaks    = seq(0, yoy_max, 2),
+        labels    = function(x) x
+      )
+    ) +
+    
+    scale_x_discrete(name = NULL) +
+    labs(title = panel_label) +
+    theme_journal_pub() +
+    
+    guides(
+      fill  = guide_legend(order = 1, nrow = 1,
+                           override.aes = list(alpha = 0.9, color = "black",
+                                               linewidth = 0.3)),
+      color = guide_legend(order = 2, nrow = 1,
+                           override.aes = list(linewidth = 1.2)),
+      shape = guide_legend(order = 2, nrow = 1)
+    )
+}
+
+p_male   <- make_panel(male,   "(a)  Male Authors",   count_max = 1300)
+p_female <- make_panel(female, "(b)  Female Authors", count_max = 350)
+final <- (p_male | p_female) +
+  plot_layout(guides = "collect") &
+  theme(legend.position = "bottom",
+        legend.box      = "horizontal")
+
+final <- final +
+  plot_annotation(
+    title   = "Temporal Distribution of Authors by Academic Designation and Gender (2014–2024)",
+    caption = "YoY Ratio = Current year count ÷ Previous year count. Values > 1 indicate growth; < 1 indicate decline.",
+    theme   = theme(
+      plot.title   = element_text(face = "bold", size = 12, hjust = 0.5,
+                                  family = "serif", margin = margin(b = 6)),
+      plot.caption = element_text(size = 8, color = "grey40", hjust = 0,
+                                  family = "serif", margin = margin(t = 6)),
+      plot.background = element_rect(fill = "white", color = NA)
+    )
+  )
+
+ggsave("designation_journal_pub.png",
+       plot   = final,
+       width  = 16,
+       height = 7,
+       dpi    = 600,
+       bg     = "white")
+
+cat("✓ Saved: designation_journal_pub.png (600 dpi — journal quality)\n")
+
+
+ggsave("designation_journal_pub.tiff",
+       plot   = final,
+       width  = 16,
+       height = 7,
+       dpi    = 600,
+       compression = "lzw",
+       bg     = "white")
+
+cat("designation.tiff (600 dpi, LZW compressed)\n")
+
+
+
+male %>%
+  mutate(Total     = Assistant + Associate + Professor,
+         Asst_YoY  = round((Assistant / lag(Assistant)) * 100 / 100, 2),
+         Assoc_YoY = round((Associate / lag(Associate)) * 100 / 100, 2),
+         Prof_YoY  = round((Professor / lag(Professor)) * 100 / 100, 2)) %>%
+  select(Year, Total, Assistant, Asst_YoY,
+         Associate, Assoc_YoY, Professor, Prof_YoY) %>%
+  as.data.frame() %>% print()
+
+cat("\n── Female ───────────────────────────────────────────\n")
+female %>%
+  mutate(Total     = Assistant + Associate + Professor,
+         Asst_YoY  = round((Assistant / lag(Assistant)) * 100 / 100, 2),
+         Assoc_YoY = round((Associate / lag(Associate)) * 100 / 100, 2),
+         Prof_YoY  = round((Professor / lag(Professor)) * 100 / 100, 2)) %>%
+  select(Year, Total, Assistant, Asst_YoY,
+         Associate, Assoc_YoY, Professor, Prof_YoY) %>%
+  as.data.frame() %>% print()v
