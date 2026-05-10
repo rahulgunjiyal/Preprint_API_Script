@@ -846,3 +846,207 @@ ggsave("male_female_funding_grouped_combined.png", p, width = 16, height = 10, d
 print(p)
 
 cat("\n Chart saved as: male_female_funding_grouped_combined.png\n")
+
+
+
+
+
+################
+###########################
+
+  # ============================================================
+#  Gender-wise Author Count + YoY Growth Ratio (2014–2024)
+
+
+library(ggplot2)
+library(tidyr)
+library(dplyr)
+library(scales)
+
+df <- data.frame(
+  Year   = 2014:2024,
+  Male   = c(11, 24, 76, 120, 287, 495, 1235, 956, 886, 942, 919),
+  Female = c( 1,  1, 12,  30,  99, 146,  339, 301, 227, 306, 294)
+)
+
+df <- df %>%
+  arrange(Year) %>%
+  mutate(
+    Male_YoY   = round((Male   / lag(Male))   * 100 / 100, 2),
+    Female_YoY = round((Female / lag(Female)) * 100 / 100, 2)
+  )
+
+df_bar <- df %>%
+  pivot_longer(cols = c(Male, Female),
+               names_to = "Sex", values_to = "Count") %>%
+  mutate(Sex = factor(Sex, levels = c("Male", "Female")))
+
+df_yoy <- df %>%
+  filter(!is.na(Male_YoY)) %>%
+  pivot_longer(cols = c(Male_YoY, Female_YoY),
+               names_to = "Sex", values_to = "YoY") %>%
+  mutate(
+    Sex   = recode(Sex, Male_YoY = "Male", Female_YoY = "Female"),
+    Sex   = factor(Sex, levels = c("Male", "Female")),
+    Label = as.character(round(YoY, 2))
+  ) %>%
+  filter(!is.na(YoY) & YoY > 0 & YoY < 15)
+
+df_yoy_dot   <- df_yoy %>% filter(Year <= 2019)
+df_yoy_solid <- df_yoy %>% filter(Year >= 2019)
+
+count_max <- 1400
+yoy_max   <- 13
+
+scale_yoy   <- function(x) x / yoy_max * count_max
+unscale_yoy <- function(x) x * yoy_max / count_max
+
+df_yoy       <- df_yoy       %>% mutate(YoY_scaled = scale_yoy(YoY))
+df_yoy_dot   <- df_yoy_dot   %>% mutate(YoY_scaled = scale_yoy(YoY))
+df_yoy_solid <- df_yoy_solid %>% mutate(YoY_scaled = scale_yoy(YoY))
+
+sex_colors      <- c(Male = "#2166AC", Female = "#B2182B")
+sex_line_colors <- c(Male = "#053061", Female = "#67001F")
+
+theme_journal_pub <- function(base_size = 11) {
+  theme_classic(base_size = base_size, base_family = "serif") +
+    theme(
+      axis.line          = element_line(color = "black", linewidth = 0.5),
+      axis.ticks         = element_line(color = "black", linewidth = 0.4),
+      axis.ticks.length  = unit(0.15, "cm"),
+      axis.text          = element_text(color = "black", size = base_size - 1,
+                                        family = "serif"),
+      axis.text.x        = element_text(angle = 45, hjust = 1, vjust = 1),
+      axis.title         = element_text(color = "black", size = base_size,
+                                        face = "bold", family = "serif"),
+      axis.title.y.left  = element_text(margin = margin(r = 6)),
+      axis.title.y.right = element_text(color = "grey35", size = base_size - 1,
+                                        face = "bold", angle = 90,
+                                        margin = margin(l = 6)),
+      axis.text.y.right  = element_text(color = "grey35", size = base_size - 2),
+      axis.line.y.right  = element_line(color = "grey60", linewidth = 0.4),
+      panel.border       = element_rect(color = "black", fill = NA,
+                                        linewidth = 0.6),
+      panel.grid.major.y = element_line(color = "grey92", linewidth = 0.35),
+      panel.grid.major.x = element_blank(),
+      panel.grid.minor   = element_blank(),
+      panel.background   = element_rect(fill = "white", color = NA),
+      legend.position    = "bottom",
+      legend.box         = "horizontal",
+      legend.title       = element_text(face = "bold", size = base_size - 1,
+                                        family = "serif"),
+      legend.text        = element_text(size = base_size - 1, family = "serif"),
+      legend.key.size    = unit(0.45, "cm"),
+      legend.key         = element_rect(fill = NA, color = NA),
+      legend.background  = element_blank(),
+      legend.margin      = margin(t = 4),
+      plot.title         = element_text(face = "bold", size = base_size + 2,
+                                        hjust = 0.5, family = "serif",
+                                        margin = margin(b = 6)),
+      plot.caption       = element_text(size = 8, color = "grey40",
+                                        hjust = 0, family = "serif",
+                                        margin = margin(t = 6)),
+      plot.background    = element_rect(fill = "white", color = NA),
+      plot.margin        = margin(12, 15, 10, 12)
+    )
+}
+
+p <- ggplot() +
+
+  geom_col(data = df_bar,
+           aes(x = factor(Year), y = Count, fill = Sex),
+           position = position_dodge(width = 0.75),
+           width = 0.7, color = "black",
+           linewidth = 0.25, alpha = 0.88) +
+
+  geom_text(data = df_bar,
+            aes(x = factor(Year), y = Count,
+                label = Count, group = Sex),
+            position = position_dodge(width = 0.75),
+            vjust = -0.4, fontface = "bold",
+            size = 2.6, family = "serif",
+            show.legend = FALSE) +
+
+  geom_hline(yintercept = scale_yoy(1),
+             color = "grey50", linewidth = 0.5,
+             linetype = "dotted") +
+
+  geom_line(data = df_yoy_dot,
+            aes(x = factor(Year), y = YoY_scaled,
+                color = Sex, group = Sex),
+            linewidth = 1.1, linetype = "dashed",
+            lineend = "round") +
+
+  geom_line(data = df_yoy_solid,
+            aes(x = factor(Year), y = YoY_scaled,
+                color = Sex, group = Sex),
+            linewidth = 1.1, linetype = "solid",
+            lineend = "round") +
+
+  geom_point(data = df_yoy,
+             aes(x = factor(Year), y = YoY_scaled,
+                 color = Sex, shape = Sex),
+             size = 3.2, stroke = 1.0, fill = "white") +
+
+  geom_text(data = df_yoy,
+            aes(x = factor(Year), y = YoY_scaled,
+                color = Sex, label = Label,
+                vjust = ifelse(Sex == "Male", -0.8, 1.8)),
+            size = 2.4, family = "serif",
+            fontface = "bold", show.legend = FALSE) +
+
+
+  scale_fill_manual(values = sex_colors,
+                    name = "Gender (Bar)") +
+  scale_color_manual(values = sex_line_colors,
+                     name = "YoY Ratio (Line)") +
+  scale_shape_manual(values = c(Male = 21, Female = 22),
+                     name = "YoY Ratio (Line)") +
+
+  scale_y_continuous(
+    name   = "Number of Authors (Count)",
+    limits = c(0, count_max + 100),
+    breaks = seq(0, count_max, 200),
+    labels = comma,
+    expand = c(0, 0)
+  ) +
+
+  scale_x_discrete(name = "Year") +
+
+  labs(
+    title   = "Gender-wise Author Count and YoY Growth Ratio (2014–2024)",
+    caption = "YoY Ratio = Current year count ÷ Previous year count.  Dotted line = 2014–2019  |  Solid line = 2019–2024"
+  ) +
+
+  theme_journal_pub() +
+
+  guides(
+    fill  = guide_legend(order = 1, nrow = 1,
+                         override.aes = list(alpha = 0.88, color = "black")),
+    color = guide_legend(order = 2, nrow = 1,
+                         override.aes = list(linewidth = 1.2)),
+    shape = guide_legend(order = 2, nrow = 1)
+  )
+
+ggsave("gender_count_yoy_journal.png",
+       plot   = p,
+       width  = 14,
+       height = 7,
+       dpi    = 600,
+       bg     = "white")
+
+ggsave("gender_count_yoy_journal.tiff",
+       plot        = p,
+       width       = 14,
+       height      = 7,
+       dpi         = 600,
+       compression = "lzw",
+       bg          = "white")
+
+cat("✓ Saved: gender_count_yoy_journal.png + .tiff (600 dpi)\n")
+
+cat("\n── Gender Count + YoY Ratio Table ──────────────────\n")
+df %>%
+  select(Year, Male, Male_YoY, Female, Female_YoY) %>%
+  as.data.frame() %>%
+  print()
