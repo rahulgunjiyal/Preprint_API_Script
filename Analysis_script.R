@@ -730,3 +730,119 @@ df %>%
   tidyr::pivot_wider(names_from = Country, values_from = Pct, values_fill = 0) %>%
   as.data.frame() %>%
   print()
+
+
+
+
+
+
+
+
+
+
+
+
+#############
+###################
+#################################### Funding distribution
+
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+
+
+male <- data.frame(
+  Year    = rep(2014:2024, each = 9),
+  Funding = rep(c("DST","DBT","CSIR","ICMR","ICAR",
+                  "Other National","International","Philanthropic","NO INFO"), 11),
+  Count   = c(
+    2,2,0,1,0,2,1,0,5,
+    9,6,2,0,0,6,0,0,6,
+    11,21,4,0,0,15,1,1,30,
+    18,24,11,1,2,31,2,0,50,
+    38,51,16,8,0,63,2,1,146,
+    83,125,24,11,1,151,4,6,201,
+    122,179,50,26,7,227,5,5,782,
+    119,186,55,27,5,269,7,5,463,
+    108,198,45,28,8,233,11,8,386,
+    103,176,56,32,4,278,4,7,417,
+    112,169,46,36,1,285,4,11,385
+  ),
+  Gender = "Male ♂"
+)
+
+
+female <- data.frame(
+  Year    = rep(2015:2024, each = 9),
+  Funding = rep(c("DST","DBT","CSIR","ICMR","ICAR",
+                  "Other National","International","Philanthropic","NO INFO"), 10),
+  Count   = c(
+    1,0,0,0,0,0,0,0,0,
+    2,3,2,0,0,3,0,0,3,
+    5,6,4,0,0,6,2,1,14,
+    18,31,8,0,2,18,0,0,34,
+    19,33,12,1,0,34,1,0,65,
+    30,48,12,5,0,73,1,0,191,
+    28,52,6,24,0,90,6,0,143,
+    38,53,5,11,1,58,1,1,99,
+    39,62,7,16,1,103,1,4,118,
+    30,49,9,14,1,77,0,5,97
+  ),
+  Gender = "Female ♀"
+)
+data <- bind_rows(male, female) %>%
+  mutate(
+    Funding = factor(Funding, levels = c(
+      "DST","DBT","CSIR","ICMR","ICAR",
+      "Other National","International","Philanthropic","NO INFO"
+    )),
+    Gender = factor(Gender, levels = c("Male ♂","Female ♀"))
+  )
+
+funding_colors <- c(
+  "DST"            = "#4E9FD1",
+  "DBT"            = "#E07B39",
+  "CSIR"           = "#6DBF67",
+  "ICMR"           = "#9B59B6",
+  "ICAR"           = "#F1C40F",
+  "Other National" = "#E74C3C",
+  "International"  = "#1ABC9C",
+  "Philanthropic"  = "#E91E8C",
+  "NO INFO"        = "#BDC3C7"
+)
+
+p <- ggplot(data, aes(x = factor(Year), y = Count, fill = Funding)) +
+  geom_bar(stat = "identity",
+           position = position_dodge(width = 0.9),
+           width = 0.85, na.rm = TRUE) +
+  geom_text(aes(label = ifelse(Count == 0, "", Count)),
+            position = position_dodge(width = 0.9),
+            vjust = -0.4, size = 2.0, fontface = "bold", na.rm = TRUE) +
+  scale_fill_manual(values = funding_colors) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.12))) +
+  facet_wrap(~Gender, nrow = 2, scales = "free_y") +
+  labs(
+    title = "Preprint Submissions by Funding Source (2014–2024)",
+    x     = "Year",
+    y     = "Number of Submissions",
+    fill  = "Funding Source"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    plot.title         = element_text(face = "bold", size = 14),
+    legend.position    = "bottom",
+    legend.title       = element_text(face = "bold"),
+    legend.key.size    = unit(0.7, "cm"),
+    strip.text         = element_text(face = "bold", size = 12),
+    strip.background   = element_rect(fill = "grey93", color = NA),
+    axis.text.x        = element_text(size = 9, face = "bold"),
+    axis.text.y        = element_text(size = 9),
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor   = element_blank(),
+    plot.margin        = margin(10, 15, 10, 15)
+  )
+
+ggsave("male_female_funding_grouped_combined.png", p, width = 16, height = 10, dpi = 150)
+print(p)
+
+cat("\n Chart saved as: male_female_funding_grouped_combined.png\n")
