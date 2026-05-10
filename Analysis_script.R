@@ -470,3 +470,72 @@ female %>%
   select(Year, Total, Assistant, Asst_YoY,
          Associate, Assoc_YoY, Professor, Prof_YoY) %>%
   as.data.frame() %>% print()v
+
+
+
+
+
+
+#####
+###################license_data
+library(ggplot2)
+library(patchwork)
+biorxiv <- data.frame(
+  license = c("cc_no", "cc_by_nc_nd", "cc_by", "cc_by_nd", "cc_by_nc", "0", "cc0", "cc0_ng"),
+  count   = c(2644, 2189, 690, 375, 274, 14, 9, 3)
+)
+medrxiv <- data.frame(
+  license = c("cc_by_nc_nd", "cc_no", "cc_by_nd", "cc_by", "cc_by_nc", "cc0_ng", "cc0"),
+  count   = c(582, 459, 166, 158, 91, 6, 3)
+)
+palette <- c(
+  "cc_no"       = "#2166ac",
+  "cc_by_nc_nd" = "#1a7a3a",
+  "cc_by"       = "#8b0000",
+  "cc_by_nd"    = "#d6604d",
+  "cc_by_nc"    = "#f4a582",
+  "0"           = "#d1cce6",
+  "cc0"         = "#e8e4f0",
+  "cc0_ng"      = "#b0b0b0"
+)
+
+make_pie <- function(df, title) {
+  total  <- sum(df$count)
+  df$pct <- df$count / total * 100
+  df$legend_label <- paste0(df$license, " — ", df$count, " (", round(df$pct, 1), "%)")
+  df$license <- factor(df$license, levels = df$license)
+
+  ggplot(df, aes(x = "", y = count, fill = license)) +
+    geom_col(width = 1, color = "white", linewidth = 0.5) +
+    coord_polar(theta = "y", start = 0) +
+    scale_fill_manual(
+      values = palette,
+      labels = df$legend_label,
+      name   = "License Type"
+    ) +
+    geom_text(
+      aes(label = paste0(round(pct, 1), "%")),
+      position = position_stack(vjust = 0.5),
+      color = "white", size = 2.5,       
+      fontface = "bold",
+      data = function(x) subset(x, pct >= 4)
+    ) +
+    labs(
+      title    = title,
+      subtitle = paste0("Total = ", format(total, big.mark = ","))
+    ) +
+    theme_void() +
+    theme(
+      plot.title      = element_text(face = "bold", size = 13, hjust = 0.5),
+      plot.subtitle   = element_text(color = "gray50", size = 10, hjust = 0.5),
+      legend.title    = element_text(face = "bold", size = 9),
+      legend.text     = element_text(size = 8),
+      legend.key.size = unit(0.45, "cm"),
+      plot.margin     = margin(10, 10, 10, 10)
+    )
+}
+
+p1 <- make_pie(biorxiv, "bioRxiv — Submission License Types")
+p2 <- make_pie(medrxiv, "medRxiv — Submission License Types")
+
+p1 + p2 + plot_layout(widths = c(1, 1))
