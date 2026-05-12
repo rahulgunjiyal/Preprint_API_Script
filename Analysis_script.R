@@ -749,8 +749,7 @@ df %>%
 library(ggplot2)
 library(dplyr)
 library(tidyr)
-
-
+  
 male <- data.frame(
   Year    = rep(2014:2024, each = 9),
   Funding = rep(c("DST","DBT","CSIR","ICMR","ICAR",
@@ -768,10 +767,10 @@ male <- data.frame(
     103,176,56,32,4,278,4,7,417,
     112,169,46,36,1,285,4,11,385
   ),
-  Gender = "Male ♂"
+  Gender = "Male"
 )
-
-
+ 
+ 
 female <- data.frame(
   Year    = rep(2015:2024, each = 9),
   Funding = rep(c("DST","DBT","CSIR","ICMR","ICAR",
@@ -788,17 +787,31 @@ female <- data.frame(
     39,62,7,16,1,103,1,4,118,
     30,49,9,14,1,77,0,5,97
   ),
-  Gender = "Female ♀"
+  Gender = "Female"
 )
+ 
+ 
 data <- bind_rows(male, female) %>%
+  filter(Funding != "NO INFO") %>%
   mutate(
     Funding = factor(Funding, levels = c(
       "DST","DBT","CSIR","ICMR","ICAR",
-      "Other National","International","Philanthropic","NO INFO"
+      "Other National","International","Philanthropic"
     )),
-    Gender = factor(Gender, levels = c("Male ♂","Female ♀"))
+    Gender = factor(Gender, levels = c("Male","Female")),
+    Year_Gender = factor(
+      paste0(Year, "\n", Gender),
+      levels = c(rbind(
+        paste0(2014:2024, "\nMale"),
+        paste0(2014:2024, "\nFemale")
+      ))
+    )
   )
-
+ 
+bar_totals <- data %>%
+  group_by(Year_Gender, Gender) %>%
+  summarise(Total = sum(Count, na.rm = TRUE), .groups = "drop")
+ 
 funding_colors <- c(
   "DST"            = "#4E9FD1",
   "DBT"            = "#E07B39",
@@ -807,47 +820,50 @@ funding_colors <- c(
   "ICAR"           = "#F1C40F",
   "Other National" = "#E74C3C",
   "International"  = "#1ABC9C",
-  "Philanthropic"  = "#E91E8C",
-  "NO INFO"        = "#BDC3C7"
+  "Philanthropic"  = "#E91E8C"
 )
-
-p <- ggplot(data, aes(x = factor(Year), y = Count, fill = Funding)) +
-  geom_bar(stat = "identity",
-           position = position_dodge(width = 0.9),
-           width = 0.85, na.rm = TRUE) +
+ 
+ 
+p <- ggplot(data, aes(x = Year_Gender, y = Count, fill = Funding)) +
+  geom_bar(stat = "identity", position = "stack", width = 0.75, na.rm = TRUE) +
   geom_text(aes(label = ifelse(Count == 0, "", Count)),
-            position = position_dodge(width = 0.9),
-            vjust = -0.4, size = 2.0, fontface = "bold", na.rm = TRUE) +
+            position = position_stack(vjust = 0.5),
+            size = 2.2, fontface = "bold", color = "white", na.rm = TRUE) +
+  geom_text(data = bar_totals,
+            aes(x = Year_Gender, y = Total, label = Total),
+            inherit.aes = FALSE,
+            vjust = -1.8, size = 2.8, fontface = "bold", color = "grey20") +
+  geom_text(data = bar_totals,
+            aes(x = Year_Gender, y = Total,
+                label = ifelse(Gender == "Male", "\u2642", "\u2640"),
+                color = Gender),
+            inherit.aes = FALSE,
+            vjust = -0.3, size = 5, fontface = "bold") +
   scale_fill_manual(values = funding_colors) +
-  scale_y_continuous(expand = expansion(mult = c(0, 0.12))) +
-  facet_wrap(~Gender, nrow = 2, scales = "free_y") +
+  scale_color_manual(values = c("Male" = "#4E9FD1", "Female" = "#E07B39"), guide = "none") +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.15))) +
   labs(
-    title = "Preprint Submissions by Funding Source (2014–2024)",
+    title = "Male vs Female Preprint Submissions by Funding Source (2014–2024)",
     x     = "Year",
     y     = "Number of Submissions",
     fill  = "Funding Source"
   ) +
-  theme_minimal(base_size = 12) +
+  theme_minimal(base_size = 11) +
   theme(
     plot.title         = element_text(face = "bold", size = 14),
     legend.position    = "bottom",
     legend.title       = element_text(face = "bold"),
-    legend.key.size    = unit(0.7, "cm"),
-    strip.text         = element_text(face = "bold", size = 12),
-    strip.background   = element_rect(fill = "grey93", color = NA),
-    axis.text.x        = element_text(size = 9, face = "bold"),
-    axis.text.y        = element_text(size = 9),
+    legend.key.size    = unit(0.65, "cm"),
+    axis.text.x        = element_text(size = 7.5, color = "grey30"),
     panel.grid.major.x = element_blank(),
     panel.grid.minor   = element_blank(),
     plot.margin        = margin(10, 15, 10, 15)
   )
-
-ggsave("male_female_funding_grouped_combined.png", p, width = 16, height = 10, dpi = 150)
+ 
+ggsave("funded_only.png", p, width = 20, height = 7, dpi = 150)
 print(p)
-
-cat("\n Chart saved as: male_female_funding_grouped_combined.png\n")
-
-
+ 
+cat("\n Chart saved as: funded_only.png\n")
 
 
 
@@ -1065,37 +1081,32 @@ df %>%
 ############################Preprint status
 
 library(ggplot2)
+library(ggbreak)
 
-
-preprint_data <- data.frame(
+df <- data.frame(
   Status = c("Active", "Withdrawn"),
   Count = c(7851, 10)
 )
 
-preprint_data$Percentage <- (preprint_data$Count / sum(preprint_data$Count)) * 100
-
-print(preprint_data)
-
-ggplot(preprint_data, aes(x = Status, y = Count, fill = Status)) +
+p <- ggplot(df, aes(x = Status, y = Count, fill = Status)) +
   geom_bar(stat = "identity", width = 0.6) +
-
-  scale_y_log10(breaks = c(1, 10, 100, 1000, 10000), 
-                labels = c("1", "10", "100", "1,000", "10,000")) +
-
-  scale_fill_manual(values = c("Active" = "#34C759", "Withdrawn" = "#FF3B30")) +
-
-  geom_text(aes(label = Count), vjust = -0.5, fontface = "bold") +
-
+  
+  geom_text(aes(label = Count),
+            vjust = -0.5,
+            size = 5) +
+  
+  scale_y_break(c(100, 7600)) +
+  
   labs(
-    title = "Indian Preprints — Log Scale",
-    subtitle = paste("Total:", sum(preprint_data$Count), "| log10 y-axis"),
-    x = "Preprint Status",
-    y = "Number of Preprints (log scale)"
+    title = "Distribution of Active and Withdrawn Preprints",
+    x = "",
+    y = "Number of Preprints"
   ) +
-  theme_minimal() +
+  
+  theme_minimal(base_size = 14) +
   theme(
     legend.position = "none",
-    plot.title = element_text(hjust = 0.5, face = "bold"),
-    plot.subtitle = element_text(hjust = 0.5),
-    panel.grid.minor = element_blank()
+    plot.title = element_text(face = "bold", hjust = 0.5)
   )
+
+print(p)
